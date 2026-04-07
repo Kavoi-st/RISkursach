@@ -1,0 +1,89 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: marketplace-postgres
+    environment:
+      POSTGRES_DB: marketplace
+      POSTGRES_USER: marketplace
+      POSTGRES_PASSWORD: marketplace
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marketplace -d marketplace"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    networks:
+      - marketplace-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: marketplace-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - marketplace-net
+
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/backend.Dockerfile
+    container_name: marketplace-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/api/v1/categories"]
+      interval: 5s
+      timeout: 5s
+      retries: 18
+      start_period: 120s
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      JAVA_TOOL_OPTIONS: "-Dfile.encoding=UTF-8"
+      SERVER_PORT: 8080
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/marketplace
+      SPRING_DATASOURCE_USERNAME: marketplace
+      SPRING_DATASOURCE_PASSWORD: marketplace
+      SPRING_JPA_HIBERNATE_DDL_AUTO: none
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+
+      SECURITY_JWT_ACCESS_SECRET: ${SECURITY_JWT_ACCESS_SECRET}
+      SECURITY_JWT_REFRESH_SECRET: ${SECURITY_JWT_REFRESH_SECRET}
+      SECURITY_JWT_ACCESS_TTL_MS: 900000
+      SECURITY_JWT_REFRESH_TTL_MS: 2592000000
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID}
+    ports:
+      - "8080:8080"
+    networks:
+      - marketplace-net
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/frontend.Dockerfile
+      args:
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
+        VITE_GOOGLE_MAPS_API_KEY: ${VITE_GOOGLE_MAPS_API_KEY}
+    container_name: marketplace-frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3000:80"
+    networks:
+      - marketplace-net
+
+networks:
+  marketplace-net:
+
+volumes:
+  postgres_data:
+

@@ -1,0 +1,17 @@
+# Профиль для запуска в Docker Compose (см. SPRING_PROFILES_ACTIVE=docker)
+spring:
+  autoconfigure:
+    exclude:
+      # Redis в pom есть, но в коде не используется — при недоступном Redis старт мог падать
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+
+logging:
+  level:
+    org.flywaydb.core: INFO
+    org.springframework.boot.web.embedded.tomcat: INFO
+
+google:
+  oauth:
+    client-id: ${GOOGLE_OAUTH_CLIENT_ID:}
